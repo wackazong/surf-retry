@@ -46,8 +46,11 @@ use surf::{
 };
 
 /// The middleware is constructed with settings to handle a few different situations.
+///
 /// `max_retries` specifies the total number of attempts that will be made given a [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header has been provided.
+///
 /// If no `Retry-After` header has been provided the configured [policy](https://docs.rs/retry-policies) will be used.
+///
 /// Should conditions for a retry be met but a retry interval failed to be determined the provided `fallback_interval` will be used.
 #[derive(Debug)]
 pub struct RetryMiddleware<T: RetryPolicy + Send + Sync + 'static> {
@@ -57,13 +60,7 @@ pub struct RetryMiddleware<T: RetryPolicy + Send + Sync + 'static> {
 }
 
 impl<T: RetryPolicy + Send + Sync + 'static> RetryMiddleware<T> {
-    ///     // Construct the retry middleware with provided options.
-    ///     // This example has max retries set to 3, exponential backoff also set to a max of 3, and a fallback interval of 1 second
-    ///     let retry = RetryMiddleware::new(
-    ///        3,
-    ///        ExponentialBackoff::builder().build_with_max_retries(3),
-    ///        1,
-    ///        );
+    /// Construct the retry middleware with provided options.
     pub fn new(max_retries: u32, policy: T, fallback_interval: u64) -> Self {
         Self {
             max_retries,

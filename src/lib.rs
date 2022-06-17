@@ -1,3 +1,39 @@
+#![forbid(unsafe_code, future_incompatible)]
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    missing_copy_implementations,
+    nonstandard_style,
+    unused_qualifications,
+    unused_import_braces,
+    unused_extern_crates,
+    trivial_casts,
+    trivial_numeric_casts
+)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+//! A [surf] middleware that handles request retry logic
+//! # Example
+//! ```no_run
+//! use surf_retry::{ExponentialBackoff, RetryMiddleware};
+//! use surf_governor::GovernorMiddleware;
+//! use surf::{Client, Request, http::Method};
+//! use url::Url;
+//!
+//! #[async_std::main]
+//! async fn main() -> surf::Result<()> {
+//!     let req = Request::new(Method::Get, Url::parse("https://example.api")?);
+//!     // Construct the retry middleware with max retries set to 3, exponential backoff also set to a max of 3, and a fallback interval of 1 second
+//!     let retry = RetryMiddleware::new(
+//!        3,
+//!        ExponentialBackoff::builder().build_with_max_retries(3),
+//!        1,
+//!        );
+//!     // Construct Surf client with the retry middleware and a limit of 1 request per second to force a retry
+//!     let client = Client::new().with(retry).with(GovernorMiddleware::per_second(1)?);
+//!     let res = client.send(req).await?;
+//!     Ok(())
+//! }
+//! ```
 use async_std::task;
 use chrono::Utc;
 use httpdate::parse_http_date;
@@ -9,6 +45,10 @@ use surf::{
     Client, Request, Response, Result,
 };
 
+/// The middleware is constructed with settings to handle a few different situations.
+/// `max_retries` specifies the total number of attempts that will be made given a [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) header has been provided.
+/// If no `Retry-After` header has been provided the configured [policy](https://docs.rs/retry-policies) will be used.
+/// Should conditions for a retry be met but a retry interval failed to be determined the provided `fallback_interval` will be used.
 #[derive(Debug)]
 pub struct RetryMiddleware<T: RetryPolicy + Send + Sync + 'static> {
     max_retries: u32,
@@ -17,6 +57,13 @@ pub struct RetryMiddleware<T: RetryPolicy + Send + Sync + 'static> {
 }
 
 impl<T: RetryPolicy + Send + Sync + 'static> RetryMiddleware<T> {
+    ///     // Construct the retry middleware with provided options.
+    ///     // This example has max retries set to 3, exponential backoff also set to a max of 3, and a fallback interval of 1 second
+    ///     let retry = RetryMiddleware::new(
+    ///        3,
+    ///        ExponentialBackoff::builder().build_with_max_retries(3),
+    ///        1,
+    ///        );
     pub fn new(max_retries: u32, policy: T, fallback_interval: u64) -> Self {
         Self {
             max_retries,
@@ -103,7 +150,7 @@ mod tests {
     use wiremock::{matchers::method, Mock, MockServer, ResponseTemplate};
 
     #[async_std::test]
-    async fn will_retry_request() -> surf::Result<()> {
+    async fn will_retry_request() -> Result<()> {
         let mock_server = MockServer::start().await;
         let m = Mock::given(method("GET"))
             .respond_with(ResponseTemplate::new(200).set_body_string("Hello!".to_string()))

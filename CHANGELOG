@@ -1,0 +1,15 @@
+# Changelog
+
+## [0.2.0] - 2022-08-04
+
+### Changed
+
+- Updated the minimum versions of the following dependencies:
+  - async-std [1.12.0]
+  - wiremock [0.5.14]
+
+### Added
+
+- `Default` implementation for `RetryMiddleware<ExponentialBackoff>`, with a max retries of 3 attempts, ExponentialBackoff policy of 3 attempts, and a failback interval of 1 second.
+
+- This changelog to keep a record of notable changes to the project.

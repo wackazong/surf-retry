@@ -26,11 +26,7 @@ cargo add surf-retry
  #[async_std::main]
  async fn main() -> surf::Result<()> {
      let req = Request::new(Method::Get, Url::parse("https://example.api")?);
-     let client = Client::new().with(RetryMiddleware::new(
-            3,
-            ExponentialBackoff::builder().build_with_total_retry_duration(Duration::from_secs(60)),
-            1,
-        ));
+     let client = Client::new().with(RetryMiddleware::default());
      let res = client.send(req).await?;
      Ok(())
  }

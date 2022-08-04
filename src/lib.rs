@@ -59,6 +59,16 @@ pub struct RetryMiddleware<T: RetryPolicy + Send + Sync + 'static> {
     fallback_interval: u64,
 }
 
+impl Default for RetryMiddleware<ExponentialBackoff> {
+    fn default() -> Self {
+        Self::new(
+            3,
+            ExponentialBackoff::builder().build_with_max_retries(3),
+            1,
+        )
+    }
+}
+
 impl<T: RetryPolicy + Send + Sync + 'static> RetryMiddleware<T> {
     /// Construct the retry middleware with provided options.
     pub fn new(max_retries: u32, policy: T, fallback_interval: u64) -> Self {
@@ -85,15 +95,19 @@ impl<T: RetryPolicy + Send + Sync + 'static> RetryMiddleware<T> {
 const RETRY_CODES: &[StatusCode] = &[StatusCode::TooManyRequests, StatusCode::RequestTimeout];
 
 fn retry_to_seconds(header: &headers::HeaderValue) -> Result<u64> {
-    match header.as_str().parse::<u64>() {
-        Ok(s) => Ok(s),
+    let mut secs = match header.as_str().parse::<u64>() {
+        Ok(s) => s,
         Err(_) => {
             let date = parse_http_date(header.as_str())?;
             let sys_time = SystemTime::now();
             let difference = date.duration_since(sys_time)?;
-            Ok(difference.as_secs())
+            difference.as_secs()
         }
+    };
+    if secs < 1 {
+        secs = 1;
     }
+    Ok(secs)
 }
 
 #[surf::utils::async_trait]
@@ -111,11 +125,7 @@ impl<T: RetryPolicy + Send + Sync + 'static> Middleware for RetryMiddleware<T> {
                 if let Some(retry_after) = res.header(headers::RETRY_AFTER) {
                     match retry_to_seconds(retry_after) {
                         Ok(s) => {
-                            if s < 1 {
-                                secs = 1;
-                            } else {
-                                secs = s;
-                            }
+                            secs = s;
                         }
                         Err(_e) => {
                             secs = self.use_policy(retries);
@@ -155,11 +165,7 @@ mod tests {
         let _mock_guard = mock_server.register_as_scoped(m).await;
         let url = format!("{}/", &mock_server.uri());
         let req = Request::new(Method::Get, Url::parse(&url).unwrap());
-        let retry = RetryMiddleware::new(
-            3,
-            ExponentialBackoff::builder().build_with_max_retries(3),
-            1,
-        );
+        let retry = RetryMiddleware::default();
         let client = Client::new()
             .with(retry)
             .with(GovernorMiddleware::per_second(1)?);

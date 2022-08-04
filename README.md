@@ -17,7 +17,7 @@ cargo add surf-retry
 ## Example
 
  ```rust
- use surf_retry::{ExponentialBackoff, RetryMiddleware};
+ use surf_retry::RetryMiddleware;
  use surf::{Client, Request, http::Method};
  use url::Url;
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2022-11-16
+
+### Changed
+
+- Updated the minimum versions of the following dependencies:
+  - chrono [0.4.23]
+  - retry-policies [0.1.2]
+  - surf-governor [0.1.2]
+  - url [2.3.1]
+  - wiremock [0.5.15]
+
 ## [0.2.0] - 2022-08-04
 
 ### Changed

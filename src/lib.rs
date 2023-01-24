@@ -34,7 +34,10 @@
 //!     Ok(())
 //! }
 //! ```
-use async_std::task;
+//! # Features
+//!
+//! Per default `async_std` is used for waiting in between retries. To enable `tokio`, the default features must be disabled. The `tokio` feature
+//! enables compilation as wasm. The same feature is also available as `wasm`.
 use chrono::Utc;
 use httpdate::parse_http_date;
 pub use retry_policies::{policies::ExponentialBackoff, RetryPolicy};
@@ -135,7 +138,17 @@ impl<T: RetryPolicy + Send + Sync + 'static> Middleware for RetryMiddleware<T> {
                     secs = self.use_policy(retries);
                 };
 
-                task::sleep(Duration::from_secs(secs)).await;
+                #[cfg(all(feature = "async-std", feature = "tokio"))]
+                compile_error!("feature \"async-std\" and feature \"tokio\" cannot be enabled at the same time");
+
+                #[cfg(all(feature = "async-std", feature = "wasm"))]
+                compile_error!("feature \"async-std\" and feature \"tokio\" cannot be enabled at the same time");
+
+                #[cfg(feature = "async-std")]
+                async_std::task::sleep(Duration::from_secs(secs)).await;
+
+                #[cfg(any(feature = "tokio", feature = "wasm"))]
+                tokio::time::sleep(Duration::from_secs(secs)).await;
 
                 let r: Request = req.clone();
                 let res = next.run(r, client.clone()).await?;
